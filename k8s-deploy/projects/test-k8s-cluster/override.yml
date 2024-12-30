@@ -1,0 +1,270 @@
+# http_proxy: "http://10.9.9.37:8888"
+# https_proxy: "http://10.9.9.37:8888"
+# download_localhost: true 
+# download_run_once: true
+
+kube_version: v1.23.17 #v1.20.14
+kube_image_repo: "k8s.gcr.io"
+
+#优化apiserver参数
+kube_kubeadm_apiserver_extra_args:
+  max-mutating-requests-inflight: 400
+  max-requests-inflight: 600
+  # enable-aggregator-routing: "True"
+
+#开启api aggregator功能
+kube_api_aggregator_routing: true
+
+#优化kube-controller-manager参数
+kube_kubeadm_controller_extra_args:
+  kube-api-qps: 1000
+  kube-api-burst: 2000
+  cluster-signing-duration: 876000h
+  horizontal-pod-autoscaler-sync-period: 10s
+  concurrent-deployment-syncs: 10
+  concurrent-gc-syncs: 30
+  # terminated-pod-gc-threshold: 10000
+
+kube_controller_terminated_pod_gc_threshold: 10000
+
+#优化kube-scheduler参数
+# kube_kubeadm_scheduler_extra_args:
+#   v: 10
+
+kube_scheduler_profiles:
+  - schedulerName: default-scheduler
+  - schedulerName: dr-pod-balanced-scheduler
+    plugins:
+      score:
+        enabled:
+        - name: NodeResourcesBalancedAllocation
+        - name: InterPodAffinity
+        - name: NodeResourcesFit
+        - name: NodeAffinity
+        - name: PodTopologySpread
+          weight: 2
+        - name: TaintToleration
+        disabled:
+        - name: ImageLocality
+    pluginConfig:
+      - args:
+          apiVersion: kubescheduler.config.k8s.io/v1beta3
+          kind: NodeResourcesFitArgs
+          scoringStrategy:
+            type: LeastAllocated
+        name: NodeResourcesFit  
+
+#开启审计功能
+kubernetes_audit: true
+# audit_policy_custom_rules: |
+#   - level: None
+#     users: []
+#     verbs: []
+#     resources: []
+
+#自动续订控制平面证书
+auto_renew_certificates: true
+#需要手动启动cert renew系统服务：systemctl status k8s-certs-renew
+
+#开启kubelet服务端证书自动旋转，需要手动approve或者自定义approve控制器
+# kubelet_rotate_server_certificates: true
+
+#prometheus监控kube_proxy
+kube_proxy_metrics_bind_address: 0.0.0.0:10249
+#调整Linux连接跟踪Conntrack数量限制
+kube_proxy_conntrack_max_per_core: 65536
+
+#自定义Labels
+node_labels:
+  cluster: rl1-k8s-cluster
+  env: rl1
+#开启集群apiserver ha
+loadbalancer_apiserver_localhost: true
+loadbalancer_apiserver_type: haproxy # valid values "nginx" or "haproxy"
+#开启kubelet加载内核模块,需要动态内核服务用于将持久卷挂载到容器中
+kubelet_load_modules: true
+
+#每节点最大允许pod数量
+kubelet_max_pods: 250
+
+kubelet_node_config_extra_args:
+  imageGCLowThresholdPercent: 45
+  imageGCHighThresholdPercent: 65
+  topologyManagerPolicy: best-effort #best-effort、single-numa-node
+  # cpu亲和性、独占性配置：https://kubernetes.io/zh/docs/tasks/administer-cluster/cpu-management-policies/#%E9%85%8D%E7%BD%AE
+  topologyManagerScope: pod
+  cpuManagerPolicy: static 
+  # memoryManagerPolicy: Static
+  # reservedMemory:
+  # - numaNode: 0
+  #   limits:
+  #     memory: 4Gi
+  # - numaNode: 1
+  #   limits:
+  #     memory: 4196Mi
+
+#调整保留资源
+##系统守护进程node保留资源
+# system_reserved: true
+# system_memory_reserved: 0Gi
+# system_cpu_reserved: "\"12\""
+
+kubelet_config_extra_args:
+  evictionHard:
+    memory.available:  "8%"
+    nodefs.inodesFree: "9%"
+    imagefs.available: "10%"
+  evictionSoftGracePeriod:
+    imagefs.available: 48h
+    memory.available: 48h
+    nodefs.inodesFree: 48h
+  evictionSoft:
+    memory.available:  "15%"
+    nodefs.inodesFree: "12%"
+    imagefs.available: "15%"
+
+# ##kube服务node保留资源
+# kube_memory_reserved: 0Gi
+# kube_cpu_reserved: 0m
+
+##系统守护进程master保留资源
+# system_master_memory_reserved: 4Gi
+# system_master_cpu_reserved: "\"2\""
+
+##kube服务master保留资源
+# kube_master_memory_reserved: 0Gi
+# kube_master_cpu_reserved: 0m
+
+kube_feature_gates:
+  - "MemoryQoS=true"
+
+#支持metallb
+kube_proxy_strict_arp: true
+
+#容器运行时为docker
+container_manager: docker
+docker_version: "20.10"
+#开启docker iptables转发
+docker_iptables_enabled: "true"
+#调整docker日志选项，集群服务较多产生的日志量会非常大
+docker_log_opts: "--log-opt max-size=10240m --log-opt max-file=8"
+
+# #容器运行时为containerd
+# resolvconf_mode: host_resolvconf
+# container_manager: containerd
+# containerd_version: 1.6.24
+# containerd_storage_dir: "/var/lib/docker/"
+# runc_version: v1.1.9
+# containerd_overlayfs_mount_options: ["volatile"]
+
+# #开启使用webhook身份验证
+# kube_webhook_token_auth: true
+# kube_webhook_token_auth_url: https://kube-auth-manager.deeproute.cn/api/v1/auth/token
+
+#优化calico网络传输
+# calico_version: v3.21.2
+# calico_ipip_mode: CrossSubnet
+# calico_node_cpu_limit: 4000m
+# calico_node_memory_limit: 2Gi
+# calico_felix_prometheusmetricsenabled: true
+# calico_policy_controller_memory_limit: 2Gi
+
+calico_version: v3.21.2 #v3.25.1
+# calico_ipip_mode: CrossSubnet
+calico_ipip_mode: Always
+calico_vxlan_mode: 'Never'
+calico_network_backend: 'bird'
+# calico_node_cpu_limit: 4000m
+# calico_node_memory_limit: 2Gi
+calico_felix_prometheusmetricsenabled: true
+# calico_policy_controller_cpu_limit: "\"4\""
+# calico_policy_controller_memory_limit: 16Gi
+# calico_policy_controller_cpu_requests: "\"1\""
+# calico_policy_controller_memory_requests: 2Gi
+calico_pool_blocksize: 24
+calico_policy_controller_deployment_nodeselector: "instance-type: monitor"
+calico_policy_controller_deployment_tolerations: [{effect: NoSchedule, key: "instance-type-is-monitor"}]
+#调整etcd参数
+etcd_version: v3.4.27
+etcd_deployment_type: host
+etcd_compaction_retention: 1
+etcd_memory_limit: "48G"
+etcd_quota_backend_bytes: "8589934592" #8G
+etcd_max_request_bytes: "8388608" #8M
+etcd_backup_retention_count: 30
+etcd_cert_alt_ips:
+  - "59.110.141.31"
+etcd_metrics_port: 2381    
+# coredns
+coredns_version: v1.8.0
+dns_memory_limit: 4Gi
+nodelocaldns_memory_limit: 1Gi
+# nodelocaldns
+enable_nodelocaldns_secondary: true
+
+event_ttl_duration: "24h0m0s"
+
+# 开启性能监测
+# kube_profiling: true
+
+# 调整apiserver请求超时，防止因apiserver达到超时时间quota计算失败
+kube_apiserver_request_timeout: "10m0s"
+
+dns_extra_tolerations: [{effect: NoSchedule, key: "instance-type-is-monitor"}]
+
+# 拆分event到独立的etcd
+etcd_events_cluster_setup: true
+etcd_events_cluster_enabled: true
+etcd_events_data_dir: "/var/lib/etcd-events"
+etcd_events_metrics_port: 2384
+
+# 计算工作节点的coredns自动扩容，给工作节点提前打上如下label (修复默认计算virtual-kubelet节点资源导致扩容大量coredns）
+dns_autoscaler_nodelabels: "node-role.kubernetes.io/worker=true"
+
+pod_infra_version: "3.6"
+
+# coredns + service of local external traffic = source ip for the win
+# coredns_rewrites:
+#   - content: 'name prod-argo.srv.deeproute.cn traefik-local-lb.traefik.svc.cluster.local'
+#   - content: 'name job-traefik-local.deeproute.cn traefik-local-lb.traefik.svc.cluster.local'
+
+# forward all deeproute.cn dns lookup traffics to in-cluster coredns for
+# allowing rewrite magics to happen
+# nodelocaldns_external_zones:
+#   - zones:
+#       - deeproute.cn:53
+
+# # 替换为公司内网镜像地址
+# registry_host: "reg.deeproute.ai/deeproute-public/k8soffline"
+# kube_image_repo: "{{ registry_host }}"
+# docker_image_repo: "{{ registry_host }}"
+# quay_image_repo: "{{ registry_host }}"
+
+# # 替换软件包地址为公司内网地址
+# files_repo: "https://fs.itsz.cc/chfs/shared/software/k8s"
+# kubeadm_download_url: "{{ files_repo }}/storage.googleapis.com/kubernetes-release/release/{{ kube_version }}/bin/linux/{{ image_arch }}/kubeadm"
+# kubectl_download_url: "{{ files_repo }}/storage.googleapis.com/kubernetes-release/release/{{ kube_version }}/bin/linux/{{ image_arch }}/kubectl"
+# kubelet_download_url: "{{ files_repo }}/storage.googleapis.com/kubernetes-release/release/{{ kube_version }}/bin/linux/{{ image_arch }}/kubelet"
+# etcd_download_url: "{{ files_repo }}/github.com/coreos/etcd/releases/download/{{ etcd_version }}/etcd-{{ etcd_version }}-linux-{{ image_arch }}.tar.gz"
+# cni_download_url: "{{ files_repo }}/github.com/containernetworking/plugins/releases/download/{{ cni_version }}/cni-plugins-linux-{{ image_arch }}-{{ cni_version }}.tgz"
+# calicoctl_download_url: "{{ files_repo }}/github.com/projectcalico/calico/releases/download/{{ calico_ctl_version }}/calicoctl-linux-{{ image_arch }}"
+# calico_crds_download_url: "{{ files_repo }}/github.com/projectcalico/calico/archive/{{ calico_version }}.tar.gz"
+# crictl_download_url: "{{ files_repo }}/github.com/kubernetes-sigs/cri-tools/releases/download/{{ crictl_version }}/crictl-{{ crictl_version }}-{{ ansible_system | lower }}-{{ image_arch }}.tar.gz"
+# runc_download_url: "{{ files_repo }}/github.com/opencontainers/runc/releases/download/{{ runc_version }}/runc.{{ image_arch }}"
+# nerdctl_download_url: "{{ files_repo }}/github.com/containerd/nerdctl/releases/download/v{{ nerdctl_version }}/nerdctl-{{ nerdctl_version }}-{{ ansible_system | lower }}-{{ image_arch }}.tar.gz"
+# containerd_download_url: "{{ files_repo }}/github.com/containerd/containerd/releases/download/v{{ containerd_version }}/containerd-{{ containerd_version }}-linux-{{ image_arch }}.tar.gz"
+
+kube_apiserver_log_index: "k8s_logs_rl1-kube-apiserver"
+# 改变节点临时存储目录，默认/tmp/releases目录在节点重启后会丢失导致无法运行指定步骤
+local_release_dir: "/srv/releases"
+
+# 将对nvidia_gpu_nodes参数下的节点修改默认runtime为nvidia，如果未加入runtime将为默认runc
+nvidia_gpu_nodes: []
+# containerd_additional_runtimes:
+#   - name: nvidia
+#     type: "io.containerd.runc.v2"
+#     engine: ""
+#     root: ""
+#     options:
+#       BinaryName: "\"/usr/bin/nvidia-container-runtime\""
+#       systemdCgroup: "true"

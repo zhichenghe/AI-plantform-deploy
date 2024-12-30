@@ -1,0 +1,250 @@
+
+- name: Disable periodic updates
+  block:
+    - name: Set all periodic update options to 0
+      replace:
+        path: /etc/apt/apt.conf.d/10periodic
+        regexp: "1"
+        replace: "0"
+    - name: Set all auto update options to 0
+      replace:
+        path: /etc/apt/apt.conf.d/20auto-upgrades
+        regexp: "1"
+        replace: "0"
+    - name: Disable unattended upgrades
+      lineinfile:
+        path: /etc/apt/apt.conf.d/10periodic
+        regexp: "^APT::Periodic::Unattended-Upgrade"
+        line: 'APT::Periodic::Unattended-Upgrade "0";'
+        create: yes
+    - name: Stop apt-daily.* systemd services
+      service:
+        name: "{{ item }}"
+        state: stopped
+      with_items:
+        # - unattended-upgrades
+        - apt-daily
+        - apt-daily.timer
+        - apt-daily-upgrade
+        - apt-daily-upgrade.timer
+    - name: Disable apt-daily.* systemd services
+      systemd:
+        name: "{{service}}"
+        enabled: no
+        masked: yes
+      with_items:
+        - apt-daily.service
+        - apt-daily.timer
+        - apt-daily-upgrade.service
+        - apt-daily-upgrade.timer
+      loop_control:
+        loop_var: service
+    - name: Uninstall unattended upgrades
+      apt:
+        name: unattended-upgrades
+        state: absent
+    - name: Prevent unattended upgrades from being installed
+      dpkg_selections:
+        name: unattended-upgrades
+        selection: hold
+  ignore_errors: true  
+- name: Check node type is nvidia gpu
+  shell:
+    cmd: |
+      lspci |grep NVIDIA
+  register: nvidia_gpu
+  ignore_errors: true
+- name: Add nvidia-container-runtime repo source
+  shell:
+    cmd: |
+      curl -s -L https://nvidia.github.io/nvidia-container-runtime/gpgkey | apt-key add -
+      distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+      curl -s -L https://nvidia.github.io/nvidia-container-runtime/$distribution/nvidia-container-runtime.list | tee /etc/apt/sources.list.d/nvidia-container-runtime.list
+  when: nvidia_gpu.rc == 0
+- name: Change docker daemon.json 
+  shell:
+    cmd: |
+      cat <<EOF > /etc/docker/daemon.json
+      {
+        "default-runtime": "nvidia",
+          "runtimes": {
+              "nvidia": {
+                  "path": "nvidia-container-runtime",
+                  "runtimeArgs": []
+              }
+          }
+      }
+      EOF 
+  when: nvidia_gpu.rc == 0
+  ignore_errors: true       
+- name: Only run "update_cache=yes" if the last one is more than 3600 seconds ago
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+- name: Ensure dependencies are installed.
+  apt:
+    state: present
+    pkg:
+      - ntpdate
+      - ntp
+      - unzip
+      - nfs-common
+      - fio
+      - iperf
+      - iotop
+      - iftop
+      - htop
+- name: Remove "snapd" package
+  apt:
+    name: snapd
+    state: absent
+    purge: yes
+    autoremove: yes
+- name: Install nvidia-container-runtime
+  apt:
+    name: "{{ item }}"
+    state: latest
+    update_cache: yes
+  with_items:
+    - nvidia-container-runtime 
+  when: nvidia_gpu.rc == 0
+- name: Sync system timezone
+  cron:
+    name: "add timezone sync"
+    minute: "*/5"
+    job: "/usr/sbin/ntpdate -u pool.ntp.org >/dev/null 2>&1"
+- name: Reboot sync ntp time
+  cron:
+    name: add ntpdate records
+    special_time: reboot
+    job: "/usr/sbin/ntpdate -u pool.ntp.org >/dev/null 2>&1"
+    state: present      
+- name: Optimize openfile limit
+  lineinfile:
+      path: "/etc/security/limits.conf"
+      line: "{{ item }}"
+  with_items:
+    - "root soft nofile 1048576"
+    - "root hard nofile 1048576"
+    - "* soft nofile 1048576"
+    - "* hard nofile 1048576"
+# - name: Disable NetworkManager services
+#   systemd:
+#     name: NetworkManager
+#     state: stopped
+#     enabled: false
+#   ignore_errors: true
+- name: Disable unattended upgrades if installed
+  command: systemctl mask unattended-upgrades 
+- name: Disable kernel auto upgrade
+  shell: 
+    cmd: |
+      apt-mark hold linux-image-`uname -r` linux-headers-`uname -r` linux-modules-`uname -r` linux-modules-extra-`uname -r`
+  ignore_errors: true 
+- name: Fix Aspeed Firmware Warning
+  shell: 
+    cmd: |
+      mkdir -p /lib/firmware/
+      touch /lib/firmware/ast_dp501_fw.bin || true
+  ignore_errors: true 
+- name: Disable ipv6
+  sysctl:
+    name: "{{ item }}"
+    state: present
+    sysctl_file: "{{ sysctl_file_path }}"
+    value: "1"
+    reload: yes
+  with_items:
+    - net.ipv6.conf.all.disable_ipv6
+    - net.ipv6.conf.default.disable_ipv6
+    - net.ipv6.conf.lo.disable_ipv6
+- name: Optimize coredump path and format
+  sysctl:
+    name: kernel.core_pattern
+    state: present
+    sysctl_file: "{{ sysctl_file_path }}"
+    value: "/var/coredump/core.%h.%e.%p.%t"
+    reload: yes        
+- name: Optimize max open files
+  sysctl:
+    name: fs.file-max
+    state: present
+    sysctl_file: "{{ sysctl_file_path }}"
+    value: "1048576"
+    reload: yes
+- name: Optimize inotify max user instances
+  sysctl:
+    name: fs.inotify.max_user_instances
+    state: present
+    sysctl_file: "{{ sysctl_file_path }}"
+    value: "8192"
+    reload: yes
+- name: Optimize inotify max user watches
+  sysctl:
+    name: fs.inotify.max_user_watches
+    state: present
+    sysctl_file: "{{ sysctl_file_path }}"
+    value: "524288"
+    reload: yes
+# https://github.com/moby/moby/issues/31208
+# ipvsadm -l --timeout
+- name: Optimize ipvs tcp idle timeout time
+  sysctl:
+    name: net.ipv4.tcp_keepalive_time
+    state: present
+    sysctl_file: "{{ sysctl_file_path }}"
+    value: "600"
+    reload: yes
+- name: Optimize ipvs tcp idle intvl time
+  sysctl:
+    name: net.ipv4.tcp_keepalive_intvl
+    state: present
+    sysctl_file: "{{ sysctl_file_path }}"
+    value: "30"
+    reload: yes
+- name: Optimize ipvs tcp idle probes time
+  sysctl:
+    name: net.ipv4.tcp_keepalive_probes
+    state: present
+    sysctl_file: "{{ sysctl_file_path }}"
+    value: "10"
+    reload: yes
+- name: Optimize kernel network args  
+  shell: 
+    cmd: |          
+      cat <<EOF > /etc/sysctl.d/k8s.conf
+      vm.max_map_count=262144
+      kernel.sysrq=1
+      kernel.threads-max=1000000
+
+      net.core.somaxconn=32768
+      net.ipv4.neigh.default.gc_stale_time=120
+
+      # see details in https://help.aliyun.com/knowledge_detail/39428.html
+      net.ipv4.conf.all.rp_filter=0
+      net.ipv4.conf.default.rp_filter=0
+      net.ipv4.conf.default.arp_announce=2
+      net.ipv4.conf.lo.arp_announce=2
+      net.ipv4.conf.all.arp_announce=2
+
+      # see details in https://help.aliyun.com/knowledge_detail/41334.html
+      net.ipv4.tcp_fin_timeout=30
+      net.ipv4.tcp_max_tw_buckets=262144
+      net.ipv4.tcp_syncookies=1
+
+      # optimize iptables conntrack 
+      net.netfilter.nf_conntrack_tcp_be_liberal=1
+      net.netfilter.nf_conntrack_tcp_loose=1 
+      net.netfilter.nf_conntrack_max=3200000
+      net.netfilter.nf_conntrack_buckets=1600512
+      net.netfilter.nf_conntrack_tcp_timeout_time_wait=30    
+
+      # fix errors: arp_cache: neighbor table overflow!
+      net.ipv4.neigh.default.gc_thresh1=2048
+      net.ipv4.neigh.default.gc_thresh2=4096
+      net.ipv4.neigh.default.gc_thresh3=8192
+      EOF
+- name: apply sysctl
+  shell:
+    cmd: |
+      /sbin/sysctl --system

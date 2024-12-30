@@ -1,0 +1,5 @@
+- hosts: "{{ host }}"
+  gather_facts: false
+  roles:
+    - cpu-performance
+    - jetson-orin

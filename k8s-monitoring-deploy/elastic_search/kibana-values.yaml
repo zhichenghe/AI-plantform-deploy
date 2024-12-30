@@ -1,0 +1,41 @@
+ingress:
+  enabled: true
+  annotations:
+    {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  path: /
+  hosts:
+    - kibana.simulation.deeproute.ai
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+nodeSelector:
+  web-server: "true"
+
+tolerations:
+  - key: "web-server"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+
+readinessProbe:
+  timeoutSeconds: 20
+
+env:
+  - name: ELASTICSEARCH_HOSTS
+    value: https://prod-elasticsearch.deeproute.cn
+  - name: ELASTICSEARCH_USERNAME
+    value: elastic
+  - name: ELASTICSEARCH_PASSWORD
+    value: !QAZ@WSX
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 2Gi
+  limits:
+    cpu: "2"
+    memory: "4Gi"

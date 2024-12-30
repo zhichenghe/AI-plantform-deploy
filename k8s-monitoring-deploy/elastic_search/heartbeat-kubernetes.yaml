@@ -1,0 +1,395 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: heartbeat-deployment-config
+  namespace: monitoring
+  labels:
+    k8s-app: heartbeat
+data:
+  heartbeat.yml: |-
+    # heartbeat.yml
+    heartbeat.config.monitors:
+      # Directory + glob pattern to search for configuration files
+      path: /etc/heartbeat.yml
+      # If enabled, heartbeat will periodically check the config.monitors path for changes
+      reload.enabled: true
+      # How often to check for changes
+      reload.period: 10s
+
+    heartbeat.monitors:
+    # - type: icmp
+    #   id: ping-gitlab
+    #   name: gitlab
+    #   hosts: ["code.deeproute.ai"]
+    #   schedule: '*/5 * * * * * *'
+    # - type: http
+    #   id: http-gitlab
+    #   name: gitlab
+    #   hosts: ["https://code.deeproute.ai:443"]
+    #   schedule: '*/30 * * * * * *'
+    # - type: icmp
+    #   id: ping-nexus
+    #   name: nexus
+    #   hosts: ["nexus.deeproute.ai"]
+    #   schedule: '*/5 * * * * * *'
+    # - type: http
+    #   id: http-nexus
+    #   name: nexus
+    #   hosts: ["https://nexus.deeproute.ai/"]
+    #   schedule: '*/30 * * * * * *'
+
+    # - type: http
+    #   id: http-jira
+    #   name: jira
+    #   hosts: ["https://jira.deeproute.ai:443"]
+    #   schedule: '*/30 * * * * * *'
+    # - type: http
+    #   id: http-confluence
+    #   name: confluence
+    #   hosts: ["https://confluence.deeproute.ai:443"]
+    #   schedule: '*/30 * * * * * *'
+    # - type: icmp
+    #   id: ping-speedtest
+    #   name: speedtest
+    #   hosts: ["www.speedtest.cn"]
+    #   schedule: '*/10 * * * * * *'
+    # - type: http
+    #   id: http-feishu
+    #   name: feishu
+    #   hosts: ["https://rqk9rsooi4.feishu.cn:443"]
+    #   schedule: '*/10 * * * * * *'
+    - type: tcp
+      id: prod-abnormal-monitoring-service
+      name: prod-abnormal-monitoring-service
+      hosts: ["abnormal-monitoring-service.simulation-platform-prod.svc.cluster.local"]
+      ports: [80]
+      schedule: '*/10 * * * * * *'
+    - type: tcp
+      id: prod-analysis-service
+      name: prod-analysis-service
+      hosts: ["analysis-service.simulation-platform-prod.svc.cluster.local"]
+      ports: [80]
+      schedule: '*/10 * * * * * *'
+    - type: http
+      id: prod-argo-workflows-server
+      name: prod-argo-workflows-server
+      hosts: ["http://argo.simulation-platform-prod.simulation.deeproute.ai:80"]
+      schedule: '*/10 * * * * * *'
+    - type: tcp
+      id: prod-front-end-service
+      name: prod-front-end-service
+      hosts: ["front-end-service.simulation-platform-prod.svc.cluster.local"]
+      ports: [80]
+      schedule: '*/10 * * * * * *'
+    - type: tcp
+      id: prod-pnc-platform-service
+      name: prod-pnc-platform-service
+      hosts: ["pnc-platform-service.simulation-platform-prod.svc.cluster.local"]
+      ports: [80]
+      schedule: '*/10 * * * * * *'
+    - type: tcp
+      id: prod-routing-validation-service
+      name: prod-routing-validation-service
+      hosts: ["routing-validation-service.simulation-platform-prod.svc.cluster.local"]
+      ports: [80]
+      schedule: '*/10 * * * * * *'
+    - type: tcp
+      id: prod-scenario-service
+      name: prod-scenario-service
+      hosts: ["scenario-service.simulation-platform-prod.svc.cluster.local"]
+      ports: [80]
+      schedule: '*/10 * * * * * *'
+    - type: tcp
+      id: prod-ticket-service
+      name: prod-ticket-service
+      hosts: ["ticket-service.simulation-platform-prod.svc.cluster.local"]
+      ports: [80]
+      schedule: '*/10 * * * * * *'
+    - type: tcp
+      id: dev-abnormal-monitoring-service
+      name: dev-abnormal-monitoring-service
+      hosts: ["abnormal-monitoring-service.simulation-platform-dev.svc.cluster.local"]
+      ports: [80]
+      schedule: '*/10 * * * * * *'
+    - type: tcp
+      id: dev-analysis-service
+      name: dev-analysis-service
+      hosts: ["analysis-service.simulation-platform-dev.svc.cluster.local"]
+      ports: [80]
+      schedule: '*/10 * * * * * *'
+    - type: http
+      id: dev-argo-workflows-server
+      name: dev-argo-workflows-server
+      hosts: ["http://argo.simulation-platform-dev.simulation.deeproute.ai:80"]
+      schedule: '*/10 * * * * * *'
+    - type: tcp
+      id: dev-front-end-service
+      name: dev-front-end-service
+      hosts: ["front-end-service.simulation-platform-dev.svc.cluster.local"]
+      ports: [80]
+      schedule: '*/10 * * * * * *'
+    - type: tcp
+      id: dev-pnc-platform-service
+      name: dev-pnc-platform-service
+      hosts: ["pnc-platform-service.simulation-platform-dev.svc.cluster.local"]
+      ports: [80]
+      schedule: '*/10 * * * * * *'
+    - type: tcp
+      id: dev-routing-validation-service
+      name: dev-routing-validation-service
+      hosts: ["routing-validation-service.simulation-platform-dev.svc.cluster.local"]
+      ports: [80]
+      schedule: '*/10 * * * * * *'
+    - type: tcp
+      id: dev-scenario-service
+      name: dev-scenario-service
+      hosts: ["scenario-service.simulation-platform-dev.svc.cluster.local"]
+      ports: [80]
+      schedule: '*/10 * * * * * *'
+    - type: tcp
+      id: dev-ticket-service
+      name: dev-ticket-service
+      hosts: ["ticket-service.simulation-platform-dev.svc.cluster.local"]
+      ports: [80]
+      schedule: '*/10 * * * * * *'
+    - type: tcp
+      id: staging-abnormal-monitoring-service
+      name: staging-abnormal-monitoring-service
+      hosts: ["abnormal-monitoring-service.simulation-platform-staging.svc.cluster.local"]
+      ports: [80]
+      schedule: '*/10 * * * * * *'
+    - type: tcp
+      id: staging-analysis-service
+      name: staging-analysis-service
+      hosts: ["analysis-service.simulation-platform-staging.svc.cluster.local"]
+      ports: [80]
+      schedule: '*/10 * * * * * *'
+    - type: http
+      id: staging-argo-workflows-server
+      name: staging-argo-workflows-server
+      hosts: ["http://argo.simulation-platform-staging.simulation.deeproute.ai:80"]
+      schedule: '*/10 * * * * * *'
+    - type: tcp
+      id: staging-front-end-service
+      name: staging-front-end-service
+      hosts: ["front-end-service.simulation-platform-staging.svc.cluster.local"]
+      ports: [80]
+      schedule: '*/10 * * * * * *'
+    - type: tcp
+      id: staging-pnc-platform-service
+      name: staging-pnc-platform-service
+      hosts: ["pnc-platform-service.simulation-platform-staging.svc.cluster.local"]
+      ports: [80]
+      schedule: '*/10 * * * * * *'
+    - type: tcp
+      id: staging-routing-validation-service
+      name: staging-routing-validation-service
+      hosts: ["routing-validation-service.simulation-platform-staging.svc.cluster.local"]
+      ports: [80]
+      schedule: '*/10 * * * * * *'
+    - type: tcp
+      id: staging-scenario-service
+      name: staging-scenario-service
+      hosts: ["scenario-service.simulation-platform-staging.svc.cluster.local"]
+      ports: [80]
+      schedule: '*/10 * * * * * *'
+    - type: tcp
+      id: staging-ticket-service
+      name: staging-ticket-service
+      hosts: ["ticket-service.simulation-platform-staging.svc.cluster.local"]
+      ports: [80]
+      schedule: '*/10 * * * * * *'
+    - type: http
+      id: aliyun-argo-workflow-service
+      name: aliyun-argo-workflow-service
+      hosts: ["http://argo-prod.aliyun.simulation.deeproute.net:80"]
+      schedule: '*/10 * * * * * *'
+    - type: http
+      id: planning-argo-workflow-service
+      name: planning-argo-workflow-service
+      hosts: ["http://planning-argo.simulation.deeproute.ai:80"]
+      schedule: '*/10 * * * * * *'
+
+    heartbeat.scheduler:
+      limit: 10
+
+    # processors:
+    #   - add_cloud_metadata:
+
+    # cloud.id: ${ELASTIC_CLOUD_ID}
+    # cloud.auth: ${ELASTIC_CLOUD_AUTH}
+    setup.ilm.enabled: false
+    setup.template.name: "simulationk8s"
+    setup.template.pattern: "simulationk8s-*"
+
+    output.elasticsearch:
+      hosts: 'prod-elasticsearch.deeproute.cn:443'
+      protocol: "https"
+      username: "elastic"
+      password: "!QAZ@WSX"
+      index: 'simulationk8s-heartbeat-%{+yyy.MM.dd}'
+---
+# Deploy singleton instance in the whole cluster for some unique data sources, like kube-state-metrics
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: heartbeat
+  namespace: monitoring
+  labels:
+    k8s-app: heartbeat
+spec:
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      k8s-app: heartbeat
+  template:
+    metadata:
+      labels:
+        k8s-app: heartbeat
+    spec:
+      tolerations:
+      - key: "web-server"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+
+      serviceAccountName: heartbeat
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+      - name: heartbeat
+        image: docker.elastic.co/beats/heartbeat:7.14.0
+        args: [
+          "-c", "/etc/heartbeat.yml",
+          "-e",
+        ]
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        securityContext:
+          runAsUser: 0
+        resources:
+          limits:
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        volumeMounts:
+        - name: config
+          mountPath: /etc/heartbeat.yml
+          readOnly: true
+          subPath: heartbeat.yml
+        - name: data
+          mountPath: /usr/share/heartbeat/data
+      volumes:
+      - name: config
+        configMap:
+          defaultMode: 0600
+          name: heartbeat-deployment-config
+      - name: data
+        hostPath:
+          path: /var/lib/heartbeat-data
+          type: DirectoryOrCreate
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: heartbeat
+subjects:
+- kind: ServiceAccount
+  name: heartbeat
+  namespace: monitoring
+roleRef:
+  kind: ClusterRole
+  name: heartbeat
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: heartbeat
+  namespace: monitoring
+subjects:
+  - kind: ServiceAccount
+    name: heartbeat
+    namespace: monitoring
+roleRef:
+  kind: Role
+  name: heartbeat
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: heartbeat-kubeadm-config
+  namespace: monitoring
+subjects:
+  - kind: ServiceAccount
+    name: heartbeat
+    namespace: monitoring
+roleRef:
+  kind: Role
+  name: heartbeat-kubeadm-config
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: heartbeat
+  labels:
+    k8s-app: heartbeat
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - namespaces
+  - pods
+  - services
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources:
+    - replicasets
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: heartbeat
+  # should be the namespace where heartbeat is running
+  namespace: monitoring
+  labels:
+    k8s-app: heartbeat
+rules:
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs: ["get", "create", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: heartbeat-kubeadm-config
+  namespace: monitoring
+  labels:
+    k8s-app: heartbeat
+rules:
+  - apiGroups: [""]
+    resources:
+      - configmaps
+    resourceNames:
+      - kubeadm-config
+    verbs: ["get"]
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: heartbeat
+  namespace: monitoring
+  labels:
+    k8s-app: heartbeat
+---

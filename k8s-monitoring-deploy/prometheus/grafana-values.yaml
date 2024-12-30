@@ -1,0 +1,7 @@
+persistence:
+  enabled: true
+
+ingress:
+  enabled: true
+  hosts:
+  - grafana.monitoring.simulation.deeproute.ai

@@ -1,0 +1,112 @@
+- hosts: "{{ host }}"
+  gather_facts: false
+  tasks:
+    - name: Check if {{ data_block_device }} is already mounted to /var/lib/container
+      shell:
+        cmd: |
+          cat /proc/mounts | grep "{{ data_block_device }} /var/lib/container"
+      ignore_errors: true
+      register: mount_check
+
+    - name: Check if {{ data_block_device }} is already formatted as ext4
+      command: blkid -s TYPE -o value {{ data_block_device }}
+      ignore_errors: true
+      register: blkid_result
+
+    - name: Check if {{ data_block_device }} is gpt type
+      shell:
+        cmd: |
+          fdisk -l {{ data_block_device }}|grep 'Disklabel type: gpt'
+      ignore_errors: true
+      register: fdisk_result
+
+    - name: Confirm Execution
+      pause:
+        prompt: "Are you sure you want to format {{ data_block_device }} device? Type 'yes' to format disk."
+      register: pause_result
+      run_once: True
+      when:
+        - not (skip_confirmation | default(false) | bool) and "fdisk_result.rc != 0"
+
+    - name: Fail if user does not confirm deletion
+      fail:
+        msg: "Initial nodes confirmation failed"
+      when: pause_result.user_input | default('yes') != 'yes'
+
+    - name: Convert disk type for gpt
+      command: sgdisk {{ data_block_device }} -e -g
+      when: "fdisk_result.rc != 0"
+
+    - name: Format {{ data_block_device }} as ext4 if not already formatted
+      command: mkfs.ext4 -F {{ data_block_device }} -E lazy_itable_init=0,lazy_journal_init=0
+      when: "mount_check.rc != 0"
+
+    - name: Create Mount Point
+      shell:
+        cmd: |
+          mkdir -p /var/lib/container /var/lib/kubelet /var/lib/docker /var/lib/containerd
+
+    - name: Check if {{ data_block_device }} is already in /etc/fstab
+      shell:
+        cmd: |
+          grep -q '{{ data_block_device }}' /etc/fstab 
+      ignore_errors: true
+      register: fstab_entry_exists
+
+    - name: Add entry to /etc/fstab if not already present
+      blockinfile: 
+        state: present
+        dest: /etc/fstab
+        marker: "# add fstab ANSIBLE MANAGED BLOCK {mark}"
+        block: |
+          {{ data_block_device }} /var/lib/container/ ext4 defaults 0 0
+          /var/lib/container/kubelet /var/lib/kubelet none defaults,bind,slave,shared 0 0
+          /var/lib/container/containerd /var/lib/containerd none defaults,bind 0 0
+          /var/lib/container/docker /var/lib/docker none defaults,bind 0 0
+          /var/lib/container/log /var/log/pods none defaults,bind 0 0
+      when: "fstab_entry_exists.rc != 0"
+
+    - name: Mount {{ data_block_device }} to /var/lib/container
+      mount:
+        path: /var/lib/container/
+        src: "{{ data_block_device }}"
+        fstype: ext4
+        state: mounted
+        opts: defaults
+      when: "mount_check.rc != 0"
+
+    - name: Check if {{ data_block_device }} is already mounted to /var/lib/docker
+      shell:
+        cmd: |
+          cat /proc/mounts | grep "{{ data_block_device }} /var/lib/docker"
+      ignore_errors: true
+      register: mount_docker_check
+
+    - name: (reboot) Reboot triggered
+      command: /sbin/shutdown -r +1 "Ansible-triggered Reboot"
+      async: 0
+      poll: 0
+      when: mount_docker_check.rc != 0 
+
+    - name: (reboot) Wait for server to restart
+      wait_for_connection:
+        delay: 300  
+      when: mount_docker_check.rc != 0      
+
+    - name: Confirm Execution
+      pause:
+        prompt: "Are you sure you want to initial nodes state? Type 'yes' to initial nodes."
+      register: pause_result
+      run_once: True
+      when:
+        - not (skip_confirmation | default(false) | bool)
+
+    - name: Fail if user does not confirm deletion
+      fail:
+        msg: "Initial nodes confirmation failed"
+      when: pause_result.user_input | default('yes') != 'yes'
+
+    - name: Run site-init-system.yml instead of 'main'
+      include_role:
+        name: initial-kube-node
+      when: pause_result.user_input | default('yes') == 'yes' 

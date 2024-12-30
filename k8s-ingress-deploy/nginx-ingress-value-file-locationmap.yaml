@@ -1,0 +1,39 @@
+controller:
+  image:
+    repository: deeproute-simulation-registry-registry-vpc.cn-shenzhen.cr.aliyuncs.com/simulation-platform/ingress-nginx-controller
+    tag: "0.35.0"
+    digest: sha256:51b3966f02453315e7b4cbd04f20b83be73f76aad02dc6207f8d9ffac6bf5c7b
+
+  hostNetwork: true
+
+  kind: DaemonSet
+  updateStrategy:
+    type: OnDelete
+
+  priorityClassName: system-cluster-critical
+
+  tolerations:
+    - key: node-role.kubernetes.io/master
+      operator: "Equal"
+      effect: "NoSchedule"
+
+  nodeSelector:
+    kubernetes.io/hostname: remote-10.24.99.48
+
+  service:
+    enabled: true
+    type: ClusterIP
+
+  admissionWebhooks:
+    enabled: false
+
+  #  resources:
+  #  limits:
+  #    cpu: 100m
+  #    memory: 90Mi
+  #  requests:
+  #    cpu: 200m
+  #    memory: 3Gi
+
+defaultBackend:
+  enabled: false

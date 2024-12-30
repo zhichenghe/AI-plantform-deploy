@@ -1,0 +1,6 @@
+- hosts: "{{ host | default(desay_orin_node)}}"
+  gather_facts: false
+  roles:
+    - desay-orin
+  vars:
+    ip_address: "{{ ip | default(ansible_ssh_host) }}"     

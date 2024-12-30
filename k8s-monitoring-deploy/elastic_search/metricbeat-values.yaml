@@ -1,0 +1,48 @@
+daemonset:
+  hostNetworking: true
+  tolerations:
+  - key: node-role.kubernetes.io/master
+    operator: Exists
+    effect: NoSchedule
+  - key: web-server
+    operator: Exists
+    effect: NoSchedule
+  - key: zbox-i9
+    operator: Exists
+    effect: NoSchedule
+
+  extraEnvs:
+  - name: NODE_NAME
+    valueFrom:
+      fieldRef:
+        fieldPath: status.hostIP
+  - name: hostIP
+    valueFrom:
+      fieldRef:
+        fieldPath: status.hostIP
+
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "100Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+
+deployment:
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "100Mi"
+    limits:
+      cpu: "2000m"
+      memory: "2Gi"
+
+  nodeSelector:
+    web-server: "true"
+
+  tolerations:
+  - key: "web-server"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"

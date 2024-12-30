@@ -1,0 +1,297 @@
+- name: Remove flash-kernel Package
+  shell:
+    cmd: |
+      echo "y"|apt remove flash-kernel
+  ignore_errors: true
+
+- name: Remove 99-nv_usb-automount_default.rules file (delete file)
+  file:
+    path: /etc/udev/rules.d/99-nv_usb-automount_default.rules
+    state: absent
+
+- name: Disable update initramfs
+  lineinfile:
+    path: /etc/initramfs-tools/update-initramfs.conf
+    regexp: "^update_initramfs"
+    line: 'update_initramfs=no'
+
+- name: Fix sys_benchmark checkout system returen err code not for 0 
+  blockinfile: 
+    state: present
+    dest: /etc/nvidia-container-runtime/host-files-for-container.d/drivers.csv
+    block: |
+      lib, /usr/lib/libnvdla_runtime.so
+      lib, /usr/lib/libnvdla_compiler.so
+
+- name: Disable periodic updates
+  block:
+    # - name: Set all periodic update options to 0
+    #   replace:
+    #     path: /etc/apt/apt.conf.d/10periodic
+    #     regexp: "1"
+    #     replace: "0"
+    # - name: Set all auto update options to 0
+    #   replace:
+    #     path: /etc/apt/apt.conf.d/20auto-upgrades
+    #     regexp: "1"
+    #     replace: "0"
+    # - name: Disable unattended upgrades
+    #   lineinfile:
+    #     path: /etc/apt/apt.conf.d/10periodic
+    #     regexp: "^APT::Periodic::Unattended-Upgrade"
+    #     line: 'APT::Periodic::Unattended-Upgrade "0";'
+    #     create: yes
+    - name: Stop apt-daily.* systemd services
+      service:
+        name: "{{ item }}"
+        state: stopped
+      with_items:
+        # - unattended-upgrades
+        - apt-daily
+        - apt-daily.timer
+        - apt-daily-upgrade
+        - apt-daily-upgrade.timer
+    - name: Disable apt-daily.* systemd services
+      systemd:
+        name: "{{service}}"
+        enabled: no
+        masked: yes
+      with_items:
+        - apt-daily.service
+        - apt-daily.timer
+        - apt-daily-upgrade.service
+        - apt-daily-upgrade.timer
+      loop_control:
+        loop_var: service
+    - name: Uninstall unattended upgrades
+      apt:
+        name: unattended-upgrades
+        state: absent
+    - name: Prevent unattended upgrades from being installed
+      dpkg_selections:
+        name: unattended-upgrades
+        selection: hold
+  ignore_errors: true
+
+- name: Copy Time Sync Script to Remote Machine
+  template:
+    src: "srv/timesync.sh"
+    dest: /srv/timesync.sh
+    owner: root
+    group: root
+    mode: 0777   
+
+- name: Run Time Sync Shell Script
+  shell: /srv/timesync.sh
+
+- name: Reboot Run Time Sync Shell Script
+  cron: 
+    name: sync time
+    special_time: reboot 
+    job: /usr/bin/bash /srv/timesync.sh >/dev/null 2>&1 
+    state: present    
+
+- name: Sync system timezone
+  cron:
+    name: "add timezone sync"
+    minute: "*/5"
+    job: "/usr/sbin/ntpdate pool.ntp.org >/dev/null 2>&1"
+    
+- name: Update DNS records file /etc/resolv.conf
+  shell: sed -i -e '/^[#]*nameserver 127.0.0.53/s/^.*$/nameserver 10.10.10.10/' /etc/resolv.conf
+  args:
+    executable: /bin/bash 
+
+- name: Update DNS records file /run/systemd/resolve/resolv.conf
+  shell: sed -i -e '/^[#]*nameserver 127.0.0.53/s/^.*$/nameserver 10.10.10.10/' /run/systemd/resolve/resolv.conf
+  args:
+    executable: /bin/bash      
+
+- name: Reboot Add Internal DNS Address
+  cron:
+    name: add nameserver records
+    special_time: reboot
+    job: "sed -i -e '/^[#]*nameserver 127.0.0.53/s/^.*$/nameserver 10.10.10.10/' /etc/resolv.conf"
+    state: present     
+
+- name: Check External IP
+  shell:
+    cmd: |
+      ip addr|grep {{ ip_address }}  
+  ignore_errors: true
+  register: external_ip_exists      
+
+- name: Add External IP
+  shell:
+    cmd: |
+      ip addr add dev mgbe3_0 {{ ip_address }}    
+  when: "external_ip_exists.rc != 0"
+
+- name: Reboot Add External IP
+  cron: 
+    name: add external ip
+    special_time: reboot 
+    job: "ip addr add dev mgbe3_0 {{ ip_address }}"
+    state: present  
+
+- name: Check if /dev/sda1 is already mounted to /var/lib/container
+  shell:
+    cmd: |
+      cat /proc/mounts | grep "/dev/sda1 /var/lib/container"
+  ignore_errors: true
+  register: mount_check
+
+- name: Check if /dev/sda1 is already formatted as ext4
+  command: blkid -s TYPE -o value /dev/sda1
+  ignore_errors: true
+  register: blkid_result
+
+# - name: Partition and Format /dev/sda if not already formatted
+#   parted:
+#     device: /dev/sda
+#     state: present
+#     number: 1
+#     part_end: 100%
+#     fs_type: ext4
+#   when: "'ext4' not in blkid_result.stdout"
+
+- name: Check if /dev/sda is gpt type
+  shell:
+    cmd: |
+      fdisk -l /dev/sda|grep 'Disklabel type: gpt'
+  ignore_errors: true
+  register: fdisk_result
+
+- name: Convert disk for gpt
+  command: sgdisk /dev/sda -e -g
+  when: "fdisk_result.rc != 0"
+
+- name: Format /dev/sda1 as ext4 if not already formatted
+  command: mkfs.ext4 -F /dev/sda1 -E lazy_itable_init=0,lazy_journal_init=0
+  when: "mount_check.rc != 0"
+
+- name: Create Mount Point
+  shell:
+    cmd: |
+      mkdir -p /var/lib/container /var/lib/kubelet /var/lib/docker
+
+- name: Check if /dev/sda1 is already in /etc/fstab
+  shell:
+    cmd: |
+      grep -q '/dev/sda1' /etc/fstab 
+  ignore_errors: true
+  register: fstab_entry_exists
+
+- name: Add entry to /etc/fstab if not already present
+  blockinfile: 
+    state: present
+    dest: /etc/fstab
+    marker: "# add fstab ANSIBLE MANAGED BLOCK {mark}"
+    block: |
+      /dev/sda1 /var/lib/container/ ext4 defaults 0 0
+      /var/lib/container/kubelet /var/lib/kubelet none defaults,bind,slave,shared 0 0
+      /var/lib/container/docker /var/lib/docker none defaults,bind 0 0
+      /var/lib/container/log /var/log/pods none defaults,bind 0 0
+  when: "fstab_entry_exists.rc != 0"
+
+- name: Mount /dev/sda
+  mount:
+    path: /var/lib/container/
+    src: /dev/sda1
+    fstype: ext4
+    state: mounted
+    opts: defaults
+  when: "mount_check.rc != 0"
+
+- name: Copy daemon.json file to Remote Machine
+  template:
+    src: "etc/docker/daemon.json"
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Check if nvidia-container-runtime is already in system
+  shell:
+    cmd: |
+      dpkg -l | awk '/^ii/ {print $2}' |grep '^nvidia-container-runtime$'
+  ignore_errors: true
+  register: nvidia_container_runtime_exists
+
+- name: Add nvidia-container-runtime repo source
+  shell:
+    cmd: |
+      curl -s -L https://nvidia.github.io/nvidia-container-runtime/gpgkey | apt-key add -
+      distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+      curl -s -L https://nvidia.github.io/nvidia-container-runtime/$distribution/nvidia-container-runtime.list | tee /etc/apt/sources.list.d/nvidia-container-runtime.list
+      apt update
+      apt install nvidia-container-runtime -y
+  when: nvidia_container_runtime_exists.rc != 0
+
+# - name: Add entry to /etc/fstab if not already present
+#   lineinfile:
+#     path: /etc/fstab
+#     line: "/dev/sda1   /var/lib/container/   ext4   defaults   0 0"
+#   when: "fstab_entry_exists.rc != 0"
+
+ 
+
+# - name: Check docker soft link
+#   debug:
+#     msg: "{{ docker_softlink_result }}"
+
+# - name: Check docker env install
+#   debug:
+#     msg: "{{ reinstall_result.rc }}"    
+
+- name: Check docker running specify version
+  shell:
+    cmd: |
+      docker version|grep 'Version:           20.10.11'
+  ignore_errors: true
+  register: docker_exists
+
+- name: Check if /dev/sda1 is already mounted to /var/lib/docker
+  shell:
+    cmd: |
+      cat /proc/mounts | grep "/dev/sda1 /var/lib/docker"
+  ignore_errors: true
+  register: mount_docker_check
+
+- name: (reboot) Reboot triggered
+  command: /sbin/shutdown -r +1 "Ansible-triggered Reboot"
+  async: 0
+  poll: 0
+  when: mount_docker_check.rc != 0 
+
+- name: (reboot) Wait for server to restart
+  wait_for_connection:
+    delay: 75  
+  when: mount_docker_check.rc != 0
+
+- name: Reinstall kubespray-2.18.1 docker env
+  shell:
+    cmd: |
+      sed -i 's@https://apt.deeproute.cn/docker-ce/@https://apt.deeproute.cn/docker-ce-focal/@g' /etc/apt/sources.list
+      apt update
+      echo "Y"|apt reinstall containerd.io=1.4.12-1 docker-ce-cli=5:20.10.11~3-0~ubuntu-focal docker-ce=5:20.10.11~3-0~ubuntu-focal docker-ce-rootless-extras=5:20.10.11~3-0~ubuntu-focal
+  # register: reinstall_result
+  when: docker_exists.rc != 0  and mount_docker_check.rc == 0  
+
+- name: Only run "update_cache=yes" if the last one is more than 3600 seconds ago
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+- name: Ensure dependencies are installed.
+  apt:
+    state: present
+    pkg:
+      - ntpdate
+      - ntp
+      - unzip
+      - nfs-common
+      - fio
+      - iperf
+      - iotop
+      - iftop
+      - htop  

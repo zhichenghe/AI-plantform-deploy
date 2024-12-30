@@ -1,0 +1,441 @@
+metadata:
+  name: rl-prod
+  namespace: argo-job
+spec:
+  templates:
+    - name: main
+      inputs: {}
+      outputs: {}
+      metadata: {}
+      steps:
+        - - name: run-rl-prod
+            template: run-rl-prod
+            arguments: {}
+        - - name: handle-failure
+            template: handle-failure
+            when: "{{steps.run-rl-prod.status}} == Failed"
+    - name: run-rl-prod
+      outputs:
+        artifacts:
+          - name: logs
+            path: /mnt/
+      metadata: {}
+      script:
+        name: ""
+        image: "crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/base:v11"
+        command:
+          - bash
+        resources:
+          limits:
+            aliyun.com/gpu-mem: 44
+            cpu: "14"
+            memory: "100Gi"
+          requests:
+            aliyun.com/gpu-mem: 44
+            cpu: "14"
+            memory: "100Gi"
+        source: >
+          start_time=$(date +%s)
+
+          echo {{workflow.parameters.ROBOT_TYPE}}
+
+          echo {{workflow.parameters.CODE_URL}}
+
+          echo {{workflow.parameters.TASK_ID}}
+
+          echo {{workflow.parameters.GITHUB_NAME}}
+
+          echo {{workflow.parameters.GITLAB_NAME}}
+
+          echo {{workflow.parameters.SCRIPT_RUN_URL}}
+
+          echo {{workflow.parameters.URDF_PATH}}
+
+          echo {{workflow.parameters.URDF_DOWN_FILEURL}}
+
+          echo {{workflow.parameters.HPARAMS_PATH}}
+
+          echo {{workflow.parameters.HP_DOWN_FILEURL}}
+
+          file_name=$(echo {{workflow.parameters.SCRIPT_RUN_URL}}|awk -F/ '{print $1}')
+ 
+          echo ${file_name}
+
+          echo {{workflow.parameters.IS_OPEN}}
+
+          export ROBOT_TYPE={{workflow.parameters.ROBOT_TYPE}}
+
+          source /opt/conda/etc/profile.d/conda.sh
+
+          conda activate pointfoot_legged_gym
+
+          # pip install pydelatin
+
+          # pip install pyfqmr
+
+          # # pip install --index-url https://test.pypi.org/simple/ --upgrade coldplay
+
+          # wget 8.141.22.226:8009/coldplay-0.2.9-py3-none-any.whl
+
+          # pip install coldplay-0.2.9-py3-none-any.whl
+
+          echo '{{workflow.parameters.CODE_URL}}' | jq -c '.[]' | while read item; do
+            echo "Downloading $item"
+
+            codeUrl=$(echo "$item" | jq -r '.codeUrl')
+
+            echo ${codeUrl}
+
+            versionType=$(echo "$item" | jq -r '.versionType')
+
+            versionName=$(echo "$item" | jq -r '.versionName')
+
+            code_dir=$(basename -s .git "$codeUrl")
+
+            URL_WITHOUT_PROTOCOL=${codeUrl#*://}
+
+            URL_PROTOCOL=${codeUrl%%://*}
+
+            if [ {{workflow.parameters.CODE_TYPE}} -eq 1 ]; then
+              echo "CODE_TYPE is 1: Downloading and extracting ZIP file."
+              
+              wget --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" -O /workspace/${file_name}.zip ${codeUrl}
+   
+              code_dir=$(unzip -l *.zip |grep '/$'|head -1|awk '{print $4}')
+   
+              unzip /workspace/*.zip
+  
+              echo "CODE_DIR is $code_dir"
+  
+              pip install -e $code_dir/.
+            
+            elif [ {{workflow.parameters.CODE_TYPE}} -eq 2 ]; then
+              echo "CODE_TYPE is 2: Cloning Git repository."
+  
+              if [[ "$codeUrl" == *"github"* ]]; then
+                echo "Using GitHub token."
+
+                TOKEN_URL={{workflow.parameters.GITHUB_NAME}}:{{workflow.parameters.GITHUB_TOKEN}}
+  
+              else
+                echo "Using GitLab token."
+
+                TOKEN_URL={{workflow.parameters.GITLAB_NAME}}:{{workflow.parameters.GITLAB_TOKEN}}
+
+              fi
+
+              AUTH_URL="${URL_PROTOCOL}://${TOKEN_URL}@${URL_WITHOUT_PROTOCOL}"
+
+              if [ {{workflow.parameters.IS_OPEN}} = "1" ]; then
+                echo "is open project."
+
+                TOKEN_URL=""
+
+                AUTH_URL=${codeUrl}
+
+              else
+                echo "One or both of the variables are not empty."
+
+              fi
+
+              echo "AUTH_URL is $AUTH_URL"
+              echo "CODE_DIR is $code_dir"
+              echo "CODE_URL is $codeUrl"
+              echo "TOKEN_URL is $TOKEN_URL"
+
+              git clone ${AUTH_URL}
+
+              cd /workspace/${code_dir}
+
+              git checkout $versionName
+
+              pip install -e .
+            
+            else
+              echo "Invalid CODE_TYPE: {{workflow.parameters.CODE_TYPE}}"
+   
+              echo "End_time: $(date)"
+   
+              exit 1
+  
+            fi
+
+          done
+
+          cd /workspace/
+
+          echo "Start to upload URDF and HPARAMS: $(date)"
+
+          task_id={{workflow.parameters.TASK_ID}}
+
+          urdf_path={{workflow.parameters.URDF_PATH}} && urdf_down_fileurl={{workflow.parameters.URDF_DOWN_FILEURL}} && hparams_path={{workflow.parameters.HPARAMS_PATH}} && hp_down_fileurl={{workflow.parameters.HP_DOWN_FILEURL}}
+
+          echo "$urdf_path"
+
+          echo "$urdf_down_fileurl"
+
+          echo "$hparams_path"
+
+          echo "$hp_down_fileurl"
+
+          wget 8.141.22.226:8009/upload.py
+
+          if [ -z "$urdf_down_fileurl" ] && [ -n "$urdf_path" ]; then
+              echo "upload urdf: $urdf_path"
+
+              python upload.py upload_urdf $task_id $urdf_path
+
+          fi
+          
+          if [ -z "$hp_down_fileurl" ] && [ -n "$hparams_path" ]; then
+              echo "hparams_path: $hparams_path"
+
+              python upload.py upload_hp $task_id $hparams_path
+
+          fi
+
+          if [ -n "$urdf_down_fileurl" ] && [ -n "$urdf_path" ]; then
+              echo "replace urdf: $urdf_path###$urdf_down_fileurl"
+
+              decode_urdf_down_fileurl=$(printf '%b' "${urdf_down_fileurl//%/\\x}")
+
+              echo "decode_urdf_down_fileurl: $decode_urdf_down_fileurl"
+
+              wget --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" -O /workspace/urdf.urdf  ${decode_urdf_down_fileurl}
+
+              # cp /workspace/urdf.urdf $urdf_path
+
+          fi
+          
+          if [ -n "$hp_down_fileurl" ] && [ -n "$hparams_path" ]; then
+              echo "replace hparams_path: $hparams_path###$hp_down_fileurl"
+
+              decode_hp_down_fileurl=$(printf '%b' "${hp_down_fileurl//%/\\x}")
+
+              echo "decode_hp_down_fileurl: $decode_hp_down_fileurl"
+
+              wget --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" -O /workspace/hparams.yaml  ${decode_hp_down_fileurl}
+              
+              cp /workspace/hparams.yaml $hparams_path
+
+          fi
+
+          ls
+          
+          echo "End to upload URDF and HPARAMS: $(date)"
+
+          echo "Start to run RL: $(date)"
+
+          echo {{workflow.parameters.SCRIPT_NAME}}
+
+          echo {{workflow.parameters.SCRIPT_RUN_URL}}
+          
+          python {{workflow.parameters.SCRIPT_RUN_URL}}/{{workflow.parameters.SCRIPT_NAME}} {{workflow.parameters.RUN_PARAMS}} --task_id={{workflow.parameters.TASK_ID}}
+
+          echo "End to run RL: $(date)"
+
+          end_time=$(date +%s)
+
+          time_diff=$((end_time - start_time))
+
+          time_diff_minutes=$((time_diff / 60))
+
+          echo "Time taken: $time_diff_minutes minutes"
+
+          if [ $time_diff_minutes -lt 20 ]; then
+            echo "RL task is failed."
+
+            taskID={{workflow.parameters.TASK_ID}}
+
+            json_data='{"taskStatus": "6", "taskId": "'$taskID'"}'
+
+            echo ${json_data}
+
+            curl --connect-timeout 20000 -s -X POST -H "content-type: application/json" "http://120.234.28.70:9099/out/api/task/update/status" -d "${json_data}"
+
+          else
+            echo "RL task have no issue."
+
+          fi
+
+          echo "Start to backup logs."
+
+          tar --exclude='*.pt' -czvf logs.tar.gz ${file_name}/logs
+
+          mv logs.tar.gz /mnt/
+
+          find ${file_name}/logs -name '*.pt' -print0 | xargs -0 ls -lt > /tmp/pt.list
+
+          last_pt1_name=$(cat /tmp/pt.list|head -n 1|awk '{print $9}')
+
+          last_pt2_name=$(cat /tmp/pt.list|head -n 2|tail -1|awk '{print $9}')
+
+          cp ${last_pt1_name} ${last_pt2_name} /mnt/
+
+          echo "End to backup logs."
+
+          if [ $? -eq 0 ]; then
+            echo "RL task is successful."
+
+          else
+            echo "RL task is failed."
+
+            taskID={{workflow.parameters.TASK_ID}}
+
+            json_data='{"taskStatus": "6", "taskId": "'$taskID'"}'
+
+            echo ${json_data}
+
+            curl --connect-timeout 20000 -s -X POST -H "content-type: application/json" "http://120.234.28.70:9099/out/api/task/update/status" -d "${json_data}"
+
+          fi
+      podSpecPatch: |
+        initContainers:
+          - name: init
+            resources:
+              limits:
+                memory: "1000Mi"
+                cpu: "200m"
+              requests:
+                memory: "1000Mi"
+                cpu: "200m"
+        containers:
+          - name: wait
+            resources:
+              limits:
+                memory: "1000Mi"
+                cpu: "200m"
+              requests:
+                memory: "1000Mi"
+                cpu: "200m"
+        dnsConfig:
+          nameservers:
+          - 172.31.230.222
+          - 172.31.230.217
+          searches:
+          - default.svc.cluster.local
+          - svc.cluster.local
+          - cluster.local
+    - name: handle-failure
+      metadata:
+        # annotations:
+        #   alibabacloud.com/burst-resource: eci
+        #   k8s.aliyun.com/eci-image-snapshot-id: imc-2ze588g48x0rkrrg3hfy
+        #   k8s.aliyun.com/eci-spot-strategy: "SpotAsPriceGo" #采用系统自动出价，跟随当前市场实际价格
+        #   k8s.aliyun.com/eci-use-specs: "ecs.t5-lc2m1.nano,ecs.t5-lc1m1.small,ecs.t5-lc1m2.small"
+        #   k8s.aliyun.com/eci-vswitch: vsw-2zek6yfxn5wby5pv1fr6x,vsw-2zeuluifbaqu9muyv0gqd
+        #   k8s.aliyun.com/eci-schedule-strategy: "VSwitchOrdered" #设置多可用区调度策略
+      script:
+        name: ""
+        image: "crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/base:v11"
+        command:
+          - bash
+        resources: {}
+        source: >
+          echo "RL task resurce have issue"
+
+          if [ "{{workflow.status}}" == "Failed" ]; then
+            echo "Training job failed"
+
+            taskID={{workflow.parameters.TASK_ID}}
+
+            json_data='{"taskStatus": "6", "taskId": "'$taskID'"}'
+
+            echo ${json_data}
+            
+            curl --connect-timeout 20000 -s -X POST -H "content-type: application/json" "http://120.234.28.70:9099/out/api/task/update/status" -d "${json_data}"
+
+            exit 1
+
+          else
+            echo "Training job succeeded"
+
+          fi
+      podSpecPatch: |
+        {
+          "dnsPolicy": "None",
+          "dnsConfig": {
+            "nameservers": ["172.31.230.222", "172.31.230.217"],
+            "searches": [
+              "default.svc.cluster.local",
+              "svc.cluster.local",
+              "cluster.local"
+            ]
+          }
+        }
+  entrypoint: main
+  onExit: handle-failure
+  arguments:
+    parameters:
+      - name: RL_TASK_IMAGE_NAME
+        value: >-
+          crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/base:v11
+      - name: USER_NAME
+        value: "limx"
+      - name: ROBOT_TYPE
+        value: "PF_P441C"
+      - name: TASK_ID
+        value: "TASK_20241127_003"
+      - name: TASK_TYPE
+        value: ""
+      - name: CONDA_ENV
+        value: ""
+      - name: CODE_TYPE
+        value: "2"
+      - name: CODE_FILE_URI
+        value: "default_code_file_uri"
+      - name: CODE_URL
+        value: "http://8.141.22.226/jack/pointfoot-legged-gym.git"
+      - name: SCRIPT_RUN_URL
+        value: "pointfoot-legged-gym/legged_gym/scripts"
+      - name: SCRIPT_TYPE
+        value: "2"
+      - name: SCRIPT_NAME
+        value: "train.py"
+      - name: RUN_PARAMS
+        value: "--task=pointfoot_rough --headless --max_iterations=10"
+      - name: IS_OPEN
+        value: ""
+      - name: VERSION_TYPE
+        value: "1"
+      - name: VERSION_NAME
+        value: "master"
+      - name: GITHUB_NAME
+        value: ""
+      - name: GITHUB_TOKEN
+        value: ""
+      - name: GITLAB_NAME
+        value: ""
+      - name: GITLAB_TOKEN
+        value: ""
+      - name: URDF_PATH
+        value: ""
+      - name: URDF_DOWN_FILEURL
+        value: ""
+      - name: HPARAMS_PATH
+        value: ""
+      - name: HP_DOWN_FILEURL
+        value: ""
+  parallelism: 500
+  # nodeSelector:
+  #   ack: spot
+  # tolerations:
+  #   - key: ack
+  #     operator: Equal
+  #     value: spot
+  #     effect: NoSchedule
+  imagePullSecrets:
+    - name: aliyun-docker-credential
+  # activeDeadlineSeconds: 72000
+  podGC:
+    strategy: OnPodCompletion
+  # podMetadata:
+  #   labels:
+  #     alibabacloud.com/eci: "true"
+  #   annotations:
+  #     alibabacloud.com/burst-resource: eci
+  #     k8s.aliyun.com/eci-image-snapshot-id: imc-2ze588g48x0rkrrg3hfy
+  #     k8s.aliyun.com/eci-spot-strategy: "SpotAsPriceGo" #采用系统自动出价，跟随当前市场实际价格
+  #     k8s.aliyun.com/eci-use-specs: ecs.gn8is.4xlarge
+  #     k8s.aliyun.com/eci-vswitch: vsw-2zek6yfxn5wby5pv1fr6x,vsw-2zeuluifbaqu9muyv0gqd
+  #     k8s.aliyun.com/eci-schedule-strategy: "VSwitchOrdered" #设置多可用区调度策略

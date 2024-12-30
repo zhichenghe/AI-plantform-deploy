@@ -1,0 +1,140 @@
+tolerations:
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/master
+    operator: Exists
+  - effect: NoSchedule
+    key: web-server
+    operator: Equal
+    value: "true"
+  - effect: NoSchedule
+    key: zbox-i9
+    operator: Equal
+    value: "true"
+  - effect: NoSchedule
+    key: nvidia.com/gpu
+    operator: Equal
+    value: "true"
+  - effect: NoSchedule
+    key: test
+    operator: Equal
+    value: "true"
+  - effect: NoSchedule
+    key: remote
+    operator: Equal
+    value: "true"
+  - effect: NoSchedule
+    key: sil
+    operator: Equal
+    value: "true"
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "100Mi"
+  limits:
+    cpu: "2"
+    memory: "4Gi"
+
+filebeatConfig:
+  filebeat.yml: |
+    processors:
+    - drop_fields:
+      fields:
+        - host
+        - ecs
+        - log
+        - agent
+        - input
+        - stream
+      ignore_missing: true
+    processors:
+    - add_kubernetes_metadata:
+        host: ${NODE_NAME}
+        matchers:
+        - logs_path:
+            logs_path: "/var/log/containers/"
+    filebeat.inputs:
+    - type: container
+      enabled: true
+      ignore_older: 1h
+      paths:
+        - /var/log/containers/*_kube-system_*.log
+      fields:
+        namespace: kube-system
+        env: maplocalizationk8s
+    - type: container
+      enabled: true
+      ignore_older: 1h
+      paths:
+        - /var/log/containers/*_monitoring_*.log
+      fields:
+        namespace: monitoring
+        env: maplocalizationk8s
+    - type: container
+      enabled: true
+      ignore_older: 1h
+      paths:
+        - /var/log/containers/*_gitlab-ci_*.log
+      fields:
+        namespace: gitlab-ci
+        env: maplocalizationk8s
+    - type: container
+      enabled: true
+      ignore_older: 1h
+      paths:
+        - /var/log/containers/*_planning-gitlab-ci_*.log
+      fields:
+        namespace: planning-gitlab-ci
+        env: maplocalizationk8s
+    - type: container
+      enabled: true
+      ignore_older: 1h
+      paths:
+        - /var/log/containers/*_sil-gitlab-ci_*.log
+      fields:
+        namespace: sil-gitlab-ci
+        env: maplocalizationk8s
+    - type: container
+      enabled: true
+      ignore_older: 1h
+      paths:
+        - /var/log/containers/*_simulation-platform-prod_*.log
+      fields:
+        namespace: simulation-platform-prod
+        env: maplocalizationk8s
+    - type: container
+      enabled: true
+      ignore_older: 1h
+      paths:
+        - /var/log/containers/*_simulation-platform-dev_*.log
+      fields:
+        namespace: simulation-platform-dev
+        env: maplocalizationk8s
+    - type: container
+      enabled: true
+      ignore_older: 1h
+      paths:
+        - /var/log/containers/*_simulation-platform-staging_*.log
+      fields:
+        namespace: simulation-platform-staging
+        env: maplocalizationk8s
+    - type: container
+      enabled: true
+      ignore_older: 1h
+      paths:
+        - /var/log/containers/*_planning-public-dev_*.log
+      fields:
+        namespace: planning-public-dev
+        env: maplocalizationk8s
+
+    setup.ilm.enabled: false
+    setup.template.name: "maplocalizationk8s"
+    setup.template.pattern: "maplocalizationk8s-*"
+
+    output.elasticsearch:
+      host: '${NODE_NAME}'
+      hosts: 'prod-elasticsearch.deeproute.cn:443'
+      protocol: "https"
+      username: "elastic"
+      password: "!QAZ@WSX"
+      index: '%{[fields.env]}-%{[fields.namespace]}-%{+yyy.MM.dd}'

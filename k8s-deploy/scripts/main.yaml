@@ -1,0 +1,29 @@
+- hosts: all
+  become: true
+  become_method: sudo
+  vars:
+    - devops_password: 'xxxxxxxxx'    #设置devops用户的密码
+    - ansible_ssh_private_key_file: "~/.ssh/devops_key"    #获取ansible管理机的public key并替换到此目录对应文件
+  tasks:
+  - name: Add a new user named devops
+    user:
+      name: devops
+      shell: /bin/bash
+      password: "{{ devops_password | password_hash('sha512') }}"
+      update_password: on_create
+  - name: Add devops user to the sudoers
+    copy:
+      dest: "/etc/sudoers.d/devops"
+      content: "devops  ALL=(ALL)  NOPASSWD: ALL"
+  - name: Deploy SSH Key
+    authorized_key: 
+      user=devops
+      key="{{ item }}"
+      state=present
+    with_file:
+      - public_keys/jack.pub
+  handlers:
+  - name: restart ssh
+    service:
+      name=sshd
+      state=restarted

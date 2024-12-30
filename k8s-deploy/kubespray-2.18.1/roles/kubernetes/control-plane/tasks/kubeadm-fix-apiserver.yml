@@ -1,0 +1,39 @@
+---
+
+- name: Update server field in component kubeconfigs
+  lineinfile:
+    dest: "{{ kube_config_dir }}/{{ item }}"
+    regexp: '^    server: https'
+    line: '    server: {{ kube_apiserver_endpoint }}'
+    backup: yes
+  with_items:
+    - admin.conf
+    - controller-manager.conf
+    - kubelet.conf
+    - scheduler.conf
+  notify:
+    - "Master | Restart kube-controller-manager"
+    - "Master | Restart kube-scheduler"
+    - "Master | reload kubelet"
+
+- name: Update etcd-servers for apiserver
+  lineinfile:
+    dest: "{{ kube_config_dir }}/manifests/kube-apiserver.yaml"
+    regexp: '^    - --etcd-servers='
+    line: '    - --etcd-servers={{ etcd_access_addresses }}'
+  when: not etcd_kubeadm_enabled | default(false)
+
+# 由于kubeadm在v1beta4版本才支持定义ExtraEnvs,为支持kube-apiserver日志收集采用追加env到kube-apiserver.yml的方式
+# ref: https://stackoverflow.com/questions/39731999/how-to-add-spaces-at-beginning-of-block-in-ansibles-blockinfile
+- name: Append env variables to apiserver
+  blockinfile:
+    path: "{{ kube_config_dir }}/manifests/kube-apiserver.yaml"
+    insertbefore: '^(\s*)volumeMounts:'
+    block: |
+      {% filter indent(width=4, first=true) %}
+      env:
+      - name: {{ kube_apiserver_log_index }}
+        value: stdout
+      {% endfilter %}
+  when:
+    - kube_apiserver_log_index is defined

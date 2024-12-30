@@ -1,0 +1,59 @@
+alertmanager:
+  priorityClassName: "stable-service-priority"
+  persistentVolume:
+    enabled: true
+  tolerations:
+    - key: node-role.kubernetes.io/master
+      operator: Exists
+      effect: NoSchedule
+
+pushgateway:
+  enabled: false
+
+kube-state-metrics:
+  tolerations:
+    - key: node-role.kubernetes.io/master
+      operator: Exists
+      effect: NoSchedule
+
+server:
+  priorityClassName: "stable-service-priority"
+  persistentVolume:
+    enabled: true
+    size: 100Gi
+
+  ingress:
+    enabled: true
+    hosts:
+      - prometheus.locationmap.simulation.deeproute.ai
+
+  tolerations:
+    - key: node-role.kubernetes.io/master
+      operator: Exists
+      effect: NoSchedule
+
+nodeExporter:
+  priorityClassName: "stable-service-priority"
+  tolerations:
+    - key: node-role.kubernetes.io/master
+      operator: Exists
+      effect: NoSchedule
+    - key: remote
+      operator: Exists
+      effect: NoSchedule
+    - key: web-server
+      operator: Equal
+      value: "true"
+      effect: NoSchedule
+    - effect: NoSchedule
+      key: zbox-i9
+      operator: Equal
+      value: "true"
+    - effect: NoSchedule
+      key: nvidia.com/gpu
+      operator: Equal
+      value: "true"
+    - effect: NoSchedule
+      key: test
+      operator: Equal
+      value: "true"

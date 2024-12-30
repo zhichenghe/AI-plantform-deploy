@@ -1,0 +1,47 @@
+# Enabling this will publically expose your Elasticsearch instance.
+# Only enable this if you have security enabled on your cluster
+ingress:
+  enabled: true
+  annotations:
+    {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  path: /
+  hosts:
+    - es.simulation.deeproute.ai
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+# Hard means that by default pods will only be scheduled if there are enough nodes for them
+# and that they will never end up on the same node. Setting this to soft will do this "best effort"
+antiAffinity: "best effort"
+
+volumeClaimTemplate:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 100Gi
+  storageClassName: gfs-standard
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "1Gi"
+  limits:
+    cpu: "5"
+    memory: "20Gi"
+
+nodeSelector:
+  web-server: "true"
+
+tolerations:
+  - key: "test"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+  - key: "web-server"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"

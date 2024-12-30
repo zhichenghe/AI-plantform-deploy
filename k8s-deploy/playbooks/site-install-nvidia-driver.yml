@@ -1,0 +1,12 @@
+- hosts: "{{ host }}"
+  #remote_user: deeproute
+  become: true
+  become_method: sudo
+  gather_facts: false
+  tasks:
+  - name: Download nvidia driver
+    
+  - name: Silent install nvidia driver
+    shell:
+      cmd: |
+        bash /srv/cuda_11.8.0_520.61.05_linux.run --silent  --toolkit --samples --driver

@@ -1,0 +1,39 @@
+controller:
+
+  config:
+    use-proxy-protocol: "true"
+    use-http2: "true"
+
+  tolerations:
+  - key: node-role.kubernetes.io/master
+    operator: "Equal"
+    effect: "NoSchedule"
+
+  nodeSelector:
+      kubernetes.io/hostname: simulation-03
+
+  service:
+    enabled: true
+    type: NodePort
+
+    nodePorts:
+      http: 30051
+      https: 30052
+
+  admissionWebhooks:
+    enabled: false
+
+  updateStrategy:
+    type: Recreate
+
+  ## Election ID to use for status update
+  ##
+  electionID: grpc-ingress-controller-leader
+
+  ## Name of the ingress class to route through this controller
+  ##
+  ingressClass: grpc-ingress
+
+  hostNetwork: false
+  hostPort:
+    enabled: false

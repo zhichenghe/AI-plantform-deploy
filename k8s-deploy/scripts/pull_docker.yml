@@ -1,0 +1,70 @@
+---
+- name: Pull and tag Docker images on remote servers
+  gather_facts: false
+  hosts: all
+  become: yes
+  tasks:
+    - name: Pull and tag cni image
+      shell: |
+        docker pull crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/cni:v3.21.2
+        docker tag crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/cni:v3.21.2 quay.io/calico/cni:v3.21.2
+
+    - name: Pull and tag kube-controllers image
+      shell: |
+        docker pull crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/kube-controllers:v3.21.2
+        docker tag crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/kube-controllers:v3.21.2 quay.io/calico/kube-controllers:v3.21.2
+
+    - name: Pull and tag pod2daemon-flexvol image
+      shell: |
+        docker pull crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/pod2daemon-flexvol:v3.21.2
+        docker tag crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/pod2daemon-flexvol:v3.21.2 quay.io/calico/pod2daemon-flexvol:v3.21.2
+  
+    - name: Pull and tag pause image
+      shell: |
+        docker pull crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/pause:3.6
+        docker tag crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/pause:3.6 k8s.gcr.io/pause:3.6
+
+    - name: Pull and tag coredns image
+      shell: |
+        docker pull crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/coredns:v1.8.0
+        docker tag crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/coredns:v1.8.0 k8s.gcr.io/coredns/coredns:v1.8.0
+
+    - name: Pull and tag k8s-dns-node-cache image
+      shell: |
+        docker pull crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/k8s-dns-node-cache:1.21.1
+        docker tag crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/k8s-dns-node-cache:1.21.1 k8s.gcr.io/dns/k8s-dns-node-cache:1.21.1
+
+    - name: Pull and tag haproxy image
+      shell: |
+        docker pull crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/haproxy:2.4.9
+        docker tag crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/haproxy:2.4.9 docker.io/library/haproxy:2.4.9
+
+    - name: Pull and tag cluster-proportional-autoscaler image
+      shell: |
+        docker pull crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/cluster-proportional-autoscaler-amd64:1.8.5
+        docker tag crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/cluster-proportional-autoscaler-amd64:1.8.5 k8s.gcr.io/cpa/cluster-proportional-autoscaler-amd64:1.8.5
+
+    - name: Pull and tag kube-apiserver image
+      shell: |
+        docker pull crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/kube-apiserver:v1.23.17
+        docker tag crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/kube-apiserver:v1.23.17 k8s.gcr.io/kube-apiserver:v1.23.17
+
+    - name: Pull and tag kube-controller-manager image
+      shell: |
+        docker pull crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/kube-controller-manager:v1.23.17
+        docker tag crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/kube-controller-manager:v1.23.17 k8s.gcr.io/kube-controller-manager:v1.23.17
+
+    - name: Pull and tag kube-proxy image
+      shell: |
+        docker pull crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/kube-proxy:v1.23.17
+        docker tag crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/kube-proxy:v1.23.17 k8s.gcr.io/kube-proxy:v1.23.17
+
+    - name: Pull and tag kube-scheduler image
+      shell: |
+        docker pull crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/kube-scheduler:v1.23.17
+        docker tag crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/kube-scheduler:v1.23.17 k8s.gcr.io/kube-scheduler:v1.23.17
+
+    - name: Pull and tag node image
+      shell: |
+        docker pull crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/node:v3.21.2
+        docker tag crpi-yznuflhnzo12tr44.cn-shanghai.personal.cr.aliyuncs.com/limx-rl/node:v3.21.2 quay.io/calico/node:v3.21.2

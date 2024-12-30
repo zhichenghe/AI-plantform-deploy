@@ -1,0 +1,4 @@
+- hosts: "{{ host }}"
+  gather_facts: false
+  roles:
+    - initial-kube-node

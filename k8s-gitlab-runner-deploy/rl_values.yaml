@@ -1,0 +1,62 @@
+gitlabUrl: http://8.141.22.226/
+
+runnerToken: "glrt-t3_u3Xa3mAdxKDWnwQubhvG"
+
+rbac:
+  create: true
+
+concurrent: 600
+
+unregisterRunners: true
+
+resources:
+  limits:
+    cpu: 2
+    memory: 2Gi
+  requests:
+    cpu: 1
+    memory: 1Gi
+
+# nodeSelector:
+#   admin: true
+
+
+runners:
+  # secret: rl-runner-secret
+  tags: "rl-cicd"
+
+  nodeSelector:
+    admin: true
+
+  runUntagged: false
+  privileged: true
+
+  # imagePullSecrets:
+  # - reg-docker-credential
+
+  # nodeTolerations:
+  # - key: nvidia.com/gpu
+  #   effect: NoSchedule
+  #   value: "true"
+
+  # builds:
+  #   cpuRequests: 6
+  #   memoryRequests: 8Gi
+  #   cpuLimit: 8
+  #   memoryLimit: 11Gi
+  
+  # pollTimeout: 3600
+  
+  config: |
+    [[runners]]
+      [runners.kubernetes]
+        namespace = "{{.Release.Namespace}}"
+        image = "ubuntu:16.04"
+  #       [[runners.kubernetes.volumes.host_path]]
+  #         name = "sil-bag-volume"
+  #         mount_path = "/RAID1/sil_bag"
+  #         host_path = "/RAID1/sil_bag"
+  #       [[runners.kubernetes.volumes.host_path]]
+  #         name = "sil-map-volume"
+  #         mount_path = "/RAID1/sil_maps"
+  #         host_path = "/RAID1/sil_maps"
