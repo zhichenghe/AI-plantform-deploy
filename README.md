@@ -144,3 +144,15 @@ helm --namespace rl-cicd upgrade --install rl-gitlab-runner -f rl_values.yaml --
 gitlab cicd 流水线是gitlab 官方提供的CI/CD任务流水线，可用于编排CI/CD任务，详细可参考[gitlab cicd 流水线yaml文件编写官网指引](https://gitlab.cn/docs/jh/ci/yaml/gitlab_ci_yaml.html)。
 通过编写gitlab cicd 流水线yaml文件，可非常容易的实现提交训练代码更改到私有仓库后即触发AI训练任务，极大提高AI开发效率。
 另外也可参考我的另外一个开源项目包括了各种gitlab cicd流水线yaml文件编写样例，可供参考：[gitlab-ci-demo项目](https://gitee.com/zhichneghe/gitlab-ci-demo)
+
+
+
+
+
+<div align="center">
+
+### 对本项目有任何疑问或建议，欢迎联系探讨，微信号：h285426134
+
+![本地图片](./images/weixin.jpg "项目架构图")
+
+</div>
