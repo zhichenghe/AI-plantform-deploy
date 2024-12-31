@@ -1,4 +1,4 @@
-# AI计算平台一站式保姆级搭建指南
+# AI算力平台一站式保姆级搭建指南
 
 本项目提供了高可用k8s集群搭建样例指引 argo workflow搭建样例指引 gitlab私有仓库部署详细指引  gitlab runner部署详细指引 gitlab cicd 流水线yaml文件编写指引详细指引， argo workflow模版编写样例指引， AI任务docker基础镜像构建指引样例。可为AI用户提供端到端的AI计算平台搭建指南和AI任务容器化的具体样例参考。完成本项目搭建后，AI开发者只需更改代码提交到gitlab 即可自动发起对应的AI任务，极大的提升了AI开发效率。
 
